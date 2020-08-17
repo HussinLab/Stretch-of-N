@@ -61,6 +61,9 @@ def find_mutation_not_SNP(nuc_interval, df_pos_N, list_SNP, reference, sequence)
     print(sequence.id)
     list_seq=list(sequence.seq)
     
+    #list of position to eliminate duplicates
+    pos_all=list()
+    
     #loop through the rows of the stretch of N
     for index, row in df_pos_N.iterrows():
                
@@ -75,7 +78,7 @@ def find_mutation_not_SNP(nuc_interval, df_pos_N, list_SNP, reference, sequence)
             pos_after=end_N + i
             
             #if the pos_before is before the beginning of the sequence
-            if(pos_before>=0):
+            if(pos_before>=0 and (pos_before not in pos_all)):
                 #nuc at the position
                 nuc_before=list_seq[pos_before]
             
@@ -85,10 +88,11 @@ def find_mutation_not_SNP(nuc_interval, df_pos_N, list_SNP, reference, sequence)
                 if(nuc_before!=reference[pos_before] and nuc_before!="N"):
                     if(pos_before in list_SNP):
                         df_flag=df_flag.append({'sequence id':sequence.id, 'pos':(pos_before+1), 'dist from N':i, 'protected':0, 'nucleotide flag':nuc_before},ignore_index=True)
+                        pos_all.append(pos_before)
                         nb_flag+=1
                         
             #if the pos_end is after the end of the sequence
-            if(pos_after<len(sequence)):
+            if(pos_after<len(sequence)  and (pos_after not in pos_all)):
                 
                 #nuc at the position
                 nuc_after=list_seq[pos_after]
@@ -98,6 +102,7 @@ def find_mutation_not_SNP(nuc_interval, df_pos_N, list_SNP, reference, sequence)
                 if(nuc_after!=reference[pos_after] and nuc_after!="N"): 
                     if(pos_after in list_SNP):
                         df_flag=df_flag.append({'sequence id':sequence.id, 'pos':(pos_after+1), 'dist from N':i, 'protected':0, 'nucleotide flag':nuc_after},ignore_index=True)
+                        pos_all.append(pos_after)
                         nb_flag+=1
             
             #iterate
@@ -105,7 +110,11 @@ def find_mutation_not_SNP(nuc_interval, df_pos_N, list_SNP, reference, sequence)
         
         #return a list of the sorted position of the SNP flagged and remove duplicates
         sorted_flag=df_flag.sort_values(by=['pos'])
-        sorted_flag.drop_duplicates(subset =['sequence id', 'pos'], keep = 'first', inplace = True) 
+        #rows_before = sorted_flag.count
+        #sorted_flag.drop_duplicates(subset =['sequence id', 'pos'], keep = 'first', inplace = True) 
+        #rows_after = sorted_flag.count
+        #deduce the number of duplicates removed for the number of flag
+        #nb_flag=nb_flag -(rows_before - rows_after)
         
     df_nb_flag=df_nb_flag.append({'sequence id':sequence.id, 'number of flagged sites':nb_flag}, ignore_index=True)
     
@@ -138,6 +147,9 @@ def find_mutation_not_protected_SNP(nuc_interval, df_pos_N, df_protected_SNP, re
     #count the number of flagged position for this sequence
     nb_flag=0
     
+     #list of position to eliminate duplicates
+    pos_all=list()
+    
     #sequence to look at in list format
     list_seq=list(sequence.seq)
     
@@ -155,10 +167,10 @@ def find_mutation_not_protected_SNP(nuc_interval, df_pos_N, df_protected_SNP, re
             pos_after=end_N + i
             
             #if the pos_before is before the beginning of the sequence
-            if(pos_before>=0):
+            if(pos_before>=0 and (pos_before not in pos_all)):
                 #nuc at the position
                 nuc_before=list_seq[pos_before]
-            
+                pos_all.append(pos_before)
                 #compare to the reference sequence to see if this position is mutated
                 #if the pos_end is after the end of the sequence or pos_before is before the start
                 #add the pos in the list of flag SNP if they aren't a SNP position
@@ -172,11 +184,12 @@ def find_mutation_not_protected_SNP(nuc_interval, df_pos_N, df_protected_SNP, re
             
             
             #if the pos_end is after the end of the sequence
-            if(pos_after<len(sequence)):
+            if(pos_after<len(sequence)  and (pos_after not in pos_all)):
                 
                 #nuc at the position
                 nuc_after=list_seq[pos_after]
-        
+                pos_all.append(pos_after)
+
                 #if the pos_end is after the end of the sequence or pos_before is before the start
                 #add the pos in the list of flag SNP if they aren't a SNP position
                 if(nuc_after!=reference[pos_after] and nuc_after!="N"): 
@@ -194,7 +207,7 @@ def find_mutation_not_protected_SNP(nuc_interval, df_pos_N, df_protected_SNP, re
         
         #return a list of the sorted position of the SNP flagged and protected, also remove duplicates
         sorted_flag=df_flag.sort_values(by=['pos'])
-        sorted_flag.drop_duplicates(subset =['sequence id', 'pos'], keep = 'first', inplace = True) 
+        #sorted_flag.drop_duplicates(subset =['sequence id', 'pos'], keep = 'first', inplace = True) 
         protected_flag=list(set(protected_flag))
         protected_flag=sorted(protected_flag)
             
@@ -230,6 +243,9 @@ def find_mutation_not_protected_allele_SNP(nuc_interval, df_pos_N, df_protected_
     #sequence to look at in list format
     list_seq=list(sequence.seq)
     
+     #list of position to eliminate duplicates
+    pos_all=list()
+    
     #loop through the rows of the stretch of N
     for index, row in df_pos_N.iterrows():
         
@@ -244,7 +260,7 @@ def find_mutation_not_protected_allele_SNP(nuc_interval, df_pos_N, df_protected_
             pos_after=end_N + i
             
             #if the pos_before is before the beginning of the sequence
-            if(pos_before>=0):
+            if(pos_before>=0 and (pos_before not in pos_all)):
                 #nuc at the position
                 nuc_before=list_seq[pos_before]
             
@@ -252,6 +268,8 @@ def find_mutation_not_protected_allele_SNP(nuc_interval, df_pos_N, df_protected_
                 #if the pos_end is after the end of the sequence or pos_before is before the start
                 #add the pos in the list of flag SNP if they aren't a SNP position
                 if(nuc_before!=reference[pos_before] and nuc_before!="N"):
+                    
+                    pos_all.append(pos_before)
                     #allele specific protection                          
                     if(pos_before in list_protected_SNP):
                         row_pos = df_protected_SNP.loc[df_protected_SNP['START'] == pos_before]
@@ -271,8 +289,9 @@ def find_mutation_not_protected_allele_SNP(nuc_interval, df_pos_N, df_protected_
             
             
             #if the pos_end is after the end of the sequence
-            if(pos_after<len(sequence)):
+            if(pos_after<len(sequence)  and (pos_after not in pos_all)):
                 
+                pos_all.append(pos_after)
                 #nuc at the position
                 nuc_after=list_seq[pos_after]
         
@@ -300,7 +319,7 @@ def find_mutation_not_protected_allele_SNP(nuc_interval, df_pos_N, df_protected_
         
         #return a list of the sorted position of the SNP flagged and protected, also remove duplicates
         sorted_flag=df_flag.sort_values(by=['pos'])
-        sorted_flag.drop_duplicates(subset =['sequence id', 'pos'], keep = 'first', inplace = True) 
+        #sorted_flag.drop_duplicates(subset =['sequence id', 'pos'], keep = 'first', inplace = True) 
         protected_flag=list(set(protected_flag))
         protected_flag=sorted(protected_flag)
             
@@ -478,6 +497,7 @@ def main():
     for sequence in records:
         
         #check if the sequence has the right length or stop
+        
         if(len(sequence.seq)!= 29903):
             print("*************               ERROR : sequence ", sequence.id, " has the wrong lenght ( reference = 29903).          ******************")
             sys.exit(0)
