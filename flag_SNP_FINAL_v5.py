@@ -259,7 +259,7 @@ def find_mutation_not_protected_allele_SNP(nuc_interval, df_pos_N, df_protected_
             pos_before=start_N - i
             pos_after=end_N + i
             
-            #if the pos_before is before the beginning of the sequence
+            #if the pos_before is before the beginning of the sequence and isn't a duplicate
             if(pos_before>=0 and (pos_before not in pos_all)):
                 #nuc at the position
                 nuc_before=list_seq[pos_before]
@@ -270,17 +270,22 @@ def find_mutation_not_protected_allele_SNP(nuc_interval, df_pos_N, df_protected_
                 if(nuc_before!=reference[pos_before] and nuc_before!="N"):
                     
                     pos_all.append(pos_before)
+                    
                     #allele specific protection                          
                     if(pos_before in list_protected_SNP):
                         row_pos = df_protected_SNP.loc[df_protected_SNP['START'] == pos_before]
                         row_pos_allele = row_pos['MAJ_ALLELE']
-                        #if it is corresponding to the alternate allele either
-                        if(str(row_pos_allele)!=nuc_before):
-                            df_flag=df_flag.append({'sequence id':sequence.id, 'pos':(pos_before+1), 'dist from N':i, 'protected':2, 'nucleotide flag':nuc_before},ignore_index=True)
-                            protected_flag.append(pos_before+1)
-                            #nb_flag+=1
-                        else:
+                        tmp_row_pos_allele=list(row_pos_allele)
+                        str_row_pos_allele=str(tmp_row_pos_allele[0])
+                        list_row_pos_allele=str_row_pos_allele.split(',')
+                        #if it isn't corresponding to the alternate allele 
+                        if(nuc_before not in list_row_pos_allele):
                             df_flag=df_flag.append({'sequence id':sequence.id, 'pos':(pos_before+1), 'dist from N':i, 'protected':1, 'nucleotide flag':nuc_before},ignore_index=True)
+                            protected_flag.append(pos_before+1)
+                            nb_flag+=1
+                        #if the nuc is one of the alternative alleles
+                        if(nuc_before in list_row_pos_allele):
+                            df_flag=df_flag.append({'sequence id':sequence.id, 'pos':(pos_before+1), 'dist from N':i, 'protected':2, 'nucleotide flag':nuc_before},ignore_index=True)
                             protected_flag.append(pos_before+1)
                             #nb_flag+=1
                     else:
@@ -291,24 +296,31 @@ def find_mutation_not_protected_allele_SNP(nuc_interval, df_pos_N, df_protected_
             #if the pos_end is after the end of the sequence
             if(pos_after<len(sequence)  and (pos_after not in pos_all)):
                 
-                pos_all.append(pos_after)
                 #nuc at the position
                 nuc_after=list_seq[pos_after]
         
                 #if the pos_end is after the end of the sequence or pos_before is before the start
                 #add the pos in the list of flag SNP if they aren't a SNP position
                 if(nuc_after!=reference[pos_after] and nuc_after!="N"): 
+                    
+                    pos_all.append(pos_after)
+                    
                     #if(pos_after not in list_protected_SNP):
                     if(pos_after in list_protected_SNP):
                         row_pos = df_protected_SNP.loc[df_protected_SNP['START'] == pos_after]
                         row_pos_allele = row_pos['MAJ_ALLELE']
-                        #if it is corresponding to the alternate allele either
-                        if(str(row_pos_allele)!=nuc_after):
-                            df_flag=df_flag.append({'sequence id':sequence.id, 'pos':(pos_after+1), 'dist from N':i, 'protected':2, 'nucleotide flag':nuc_after},ignore_index=True)
-                            protected_flag.append(pos_after+1)
-                            #nb_flag+=1
-                        else:
+                        tmp_row_pos_allele=list(row_pos_allele)
+                        str_row_pos_allele=str(tmp_row_pos_allele[0])
+                        list_row_pos_allele=str_row_pos_allele.split(',')
+                        
+                        #if it isn't corresponding to the alternate allele 
+                        if(nuc_after not in list_row_pos_allele):
                             df_flag=df_flag.append({'sequence id':sequence.id, 'pos':(pos_after+1), 'dist from N':i, 'protected':1, 'nucleotide flag':nuc_after},ignore_index=True)
+                            protected_flag.append(pos_after+1)
+                            nb_flag+=1
+                        #if the nuc is one of the alternative alleles
+                        if(nuc_after in list_row_pos_allele):
+                            df_flag=df_flag.append({'sequence id':sequence.id, 'pos':(pos_after+1), 'dist from N':i, 'protected':2, 'nucleotide flag':nuc_after},ignore_index=True)
                             protected_flag.append(pos_after+1)
                             #nb_flag+=1
                     else:
@@ -442,7 +454,7 @@ def main():
         
     protected_file=input("path and filename for the bed of protected SNP file in this format: USER/EXEMPLE/protected.bed \n leave empty if you don't have a list of SNP that you want to protect during the analyses ->")
     if(protected_file!=""):
-        df_protected_SNP=pd.read_table(protected_file, sep='\t', header=None)
+        df_protected_SNP=pd.read_table(protected_file, sep='\t', header=None)        
         if(len(df_protected_SNP.columns)==3):
             df_protected_SNP.columns = ['CHROM', 'START', 'END']
             fct="protected"
@@ -452,6 +464,14 @@ def main():
         if(len(df_protected_SNP.columns)>4):
             print ("Invalid number of columns in protected bed file. Expected 3 or 4 column ('CHR', 'START', 'END', *'Major allele'*)")
             sys.exit(0)
+        
+        #check to see if any columns are duplicated in the bed file
+        duplicates_row=df_protected_SNP.duplicated(subset=None, keep=False)
+        list_duplicates_row=list(duplicates_row)
+        #if any line is duplicated (whole line)
+        if(True in list_duplicates_row):
+            print("*************Your bed file contains duplicated lines. multi-allelic positions should be listed in one line as Allele1,Allele2*************")
+
     if(bed_file=="" and protected_file==""):
         fct=""
     if(bed_file!="" and protected_file!=""):
@@ -518,10 +538,10 @@ def main():
             #find the SNP that are flagged for this sequence
             if(fct=="protected"):
                 flagged_SNP, flagged_protected_SNP, df_nb_flag=find_mutation_not_protected_SNP(nuc_interval, pos_stretch, df_protected_SNP, reference_seq, sequence)
-                write_protected_stats(output_file, sequence, flagged_protected_SNP)
+                #write_protected_stats(output_file, sequence, flagged_protected_SNP)
             if(fct=="protected_allele"):
                 flagged_SNP, flagged_protected_SNP, df_nb_flag=find_mutation_not_protected_allele_SNP(nuc_interval, pos_stretch, df_protected_SNP, reference_seq, sequence)
-                write_protected_stats(output_file, sequence, flagged_protected_SNP)
+                #write_protected_stats(output_file, sequence, flagged_protected_SNP)
             if(fct=="SNP"):
                 flagged_SNP, df_nb_flag=find_mutation_not_SNP(nuc_interval, pos_stretch, list_SNP, reference_seq, sequence)
             if(fct==""):
